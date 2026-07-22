@@ -1022,19 +1022,20 @@ function verifyPartCalculation(cardEl, partData) {
 }
 
 // Add shake animation helper in CSS
-const styleSheet = document.styleSheets[0];
-styleSheet.insertRule(`
+// 注入自有的 <style> 元素，而非改寫 document.styleSheets[0]。
+// 第一個樣式表是 Google Fonts CDN，屬跨來源資源，讀取其 cssRules 會觸發 SecurityError。
+const shakeStyleEl = document.createElement("style");
+shakeStyleEl.textContent = `
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-6px); }
     40%, 80% { transform: translateX(6px); }
 }
-`, styleSheet.cssRules.length);
-styleSheet.insertRule(`
 .animate-shake {
     animation: shake 0.4s ease;
 }
-`, styleSheet.cssRules.length);
+`;
+document.head.appendChild(shakeStyleEl);
 
 // Unlock Step 3 and setup inputs
 function enableTotalAreaCalculation() {
