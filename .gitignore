@@ -12,3 +12,6 @@ desktop.ini
 # 編輯器
 .vscode/
 .idea/
+
+.vercel
+.env*
