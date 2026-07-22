@@ -1,0 +1,212 @@
+/**
+ * 幾何互動教室 —— 共用基礎樣式
+ *
+ * 於各遊戲 style.css 之後載入，用來補強無障礙與響應式的共通需求。
+ * 只放跨遊戲一致的規則；個別版面調整仍留在各自的 style.css。
+ */
+
+/* ---------- 焦點可見性 ---------- */
+/*
+ * 原本的樣式在多處使用 outline: none 卻沒有替代指示，
+ * 使用鍵盤操作的學生會完全看不出焦點在哪裡。
+ * :focus-visible 只在鍵盤操作時顯示，滑鼠點擊不會出現外框。
+ */
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible,
+.choice-btn:focus-visible,
+.level-card:focus-visible {
+    outline: 3px solid #fbbf24 !important;
+    outline-offset: 3px !important;
+    border-radius: 8px;
+}
+
+/* SVG 內的可互動線段同樣需要焦點指示 */
+svg .geo-height:focus-visible {
+    outline: none !important;
+    stroke-width: 9 !important;
+    filter: drop-shadow(0 0 6px #fbbf24);
+}
+
+/* ---------- 螢幕閱讀器專用文字 ---------- */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---------- 觸控目標尺寸（WCAG 2.5.5 建議 44x44） ---------- */
+button,
+.choice-btn,
+.primary-btn,
+.secondary-btn,
+.icon-btn,
+.level-play-btn,
+.back-btn,
+.back-btn-small {
+    min-height: 44px;
+    touch-action: manipulation; /* 消除行動裝置點擊的 300ms 延遲與雙擊縮放 */
+}
+
+.icon-btn,
+.back-btn-small {
+    min-width: 44px;
+}
+
+/* ---------- 重新開始按鈕（課堂平板輪流使用時清除上一位學生的進度） ---------- */
+.reset-progress-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 28px;
+}
+
+.reset-progress-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    background: rgba(148, 163, 184, 0.12);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.reset-progress-btn:hover {
+    background: rgba(244, 63, 94, 0.16);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fecdd3;
+}
+
+.storage-hint {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+
+/* ---------- 響應式基礎 ---------- */
+
+/* 平板直式以下：縮小整體留白，讓圖形拿到更多空間 */
+@media (max-width: 768px) {
+    .app-container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .helper-tips {
+        font-size: 0.8rem;
+        line-height: 1.5;
+    }
+}
+
+/* 窄螢幕：把圖形放到最大。
+ * 原本 .svg-container 有 min-height 與較大的 padding，
+ * 且「找高大作戰」的提示框是絕對定位壓在容器底部，
+ * 導致手機上圖形被壓縮到很小、線段難以辨認。
+ * 這裡改為直向堆疊，並讓 SVG 依視窗高度撐大。
+ */
+@media (max-width: 640px) {
+    .svg-container {
+        flex-direction: column;
+        padding: 10px 6px;
+        min-height: 0;
+    }
+
+    .svg-container svg {
+        width: 100%;
+        max-width: 100%;
+        max-height: 46vh;
+    }
+
+    /* 提示改為隨文流排列，不再遮擋圖形 */
+    .helper-tips {
+        position: static;
+        margin-top: 10px;
+        left: auto;
+        right: auto;
+        bottom: auto;
+    }
+}
+
+/* 手機直式：選項改為單欄，避免文字被擠成兩三行 */
+@media (max-width: 480px) {
+    .choices-container {
+        grid-template-columns: 1fr !important;
+        display: grid !important;
+        gap: 10px;
+    }
+
+    .choice-btn {
+        justify-content: flex-start;
+        padding: 12px 14px;
+        font-size: 0.95rem;
+    }
+
+    .global-header .game-logo span {
+        font-size: 1rem;
+    }
+
+    .feedback-card {
+        padding: 20px 16px;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+
+    .complete-actions {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .complete-actions button {
+        width: 100%;
+    }
+}
+
+/* 橫向且螢幕高度很矮（手機橫拿）：壓縮垂直留白，確保選項不被擠出畫面 */
+@media (max-height: 480px) and (orientation: landscape) {
+    .global-header {
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+
+    .question-box {
+        padding: 10px 14px;
+    }
+
+    .question-box h2 {
+        font-size: 0.95rem;
+    }
+}
+
+/* ---------- 尊重「減少動態效果」偏好 ---------- */
+/*
+ * 前庭系統敏感的使用者會因大量動畫產生不適。
+ * 此處連同煙火 canvas 一併隱藏（煙火由 JS 判斷後不啟動，這裡是視覺上的第二道保險）。
+ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .bg-drift-shape,
+    #fireworksCanvas {
+        display: none !important;
+    }
+}

@@ -1,0 +1,11 @@
+# 明確排除不該進入部署的檔案。
+# 目前 Vercel 預設就不會對外提供 dotfile，這裡再上一道保險，
+# 避免日後平台行為或設定變動導致憑證外流。
+.env
+.env.*
+.vercel
+node_modules
+
+# 開發用文件與工具，不需要放上線
+README.md
+tools

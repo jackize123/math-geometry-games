@@ -12,6 +12,8 @@
     <!-- FontAwesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- 共用基礎樣式置後載入，確保焦點環等無障礙規則能覆蓋既有樣式 -->
+    <link rel="stylesheet" href="../shared/base.css">
 </head>
 <body>
     <!-- Background dynamic elements -->
@@ -115,6 +117,15 @@
                         <button class="level-play-btn">進入關卡</button>
                     </div>
                 </div>
+
+                <!-- 課堂平板輪流使用時，讓下一位學生從乾淨的進度開始 -->
+                <div class="reset-progress-row">
+                    <button id="resetProgressBtn" class="reset-progress-btn">
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                        <span>重新開始（清除進度）</span>
+                    </button>
+                </div>
+                <p class="storage-hint" id="storageHint"></p>
             </div>
         </section>
 
@@ -148,13 +159,17 @@
                             <span class="hint-badge" id="shapeHintBadge">請觀察標記尺寸</span>
                         </div>
                         <div class="svg-container">
-                            <svg id="compositeGeometrySvg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet">
+                            <svg id="compositeGeometrySvg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet"
+                                 role="img" aria-labelledby="svgDesc">
                                 <!-- Dynamic SVG elements will be injected here -->
                             </svg>
+                            <!-- 圖形的文字描述，由 JS 依關卡更新，供螢幕閱讀器讀出 -->
+                            <p id="svgDesc" class="sr-only"></p>
                         </div>
                         <div class="helper-tips">
                             <i class="fa-regular fa-lightbulb"></i>
-                            <span id="questionTipText">點擊右側的圖形按鈕，將此圖形拆解並逐一計算其面積。</span>
+                            <!-- 用版面中性的說法：手機上「拆解與計算區」會堆疊到下方，不在右側 -->
+                            <span id="questionTipText">在「拆解與計算區」點選圖形按鈕，將此圖形拆解並逐一計算其面積。</span>
                         </div>
                     </div>
 
@@ -218,8 +233,9 @@
         </section>
 
         <!-- FEEDBACK MODAL -->
-        <div id="feedbackOverlay" class="modal-overlay">
-            <canvas id="fireworksCanvas"></canvas>
+        <div id="feedbackOverlay" class="modal-overlay" role="dialog" aria-modal="true"
+             aria-labelledby="feedbackResultTitle" aria-describedby="feedbackExplanation">
+            <canvas id="fireworksCanvas" aria-hidden="true"></canvas>
             <div class="feedback-card card animate-pop">
                 <div class="feedback-icon" id="feedbackIcon">
                     <!-- Check or cross -->
@@ -286,6 +302,10 @@
     </div>
 
     <!-- Script loading -->
+    <!-- 共用模組須在 game.js 之前載入 -->
+    <script src="../shared/storage.js"></script>
+    <script src="../shared/audio.js"></script>
+    <script src="../shared/shuffle.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

@@ -12,6 +12,8 @@
     <!-- FontAwesome icons via CDN for buttons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <!-- 共用基礎樣式置後載入，確保焦點環等無障礙規則能覆蓋既有樣式 -->
+    <link rel="stylesheet" href="../shared/base.css">
 </head>
 <body>
     <!-- Background dynamic shapes -->
@@ -112,6 +114,15 @@
                         <button class="level-play-btn">進入關卡</button>
                     </div>
                 </div>
+
+                <!-- 課堂平板輪流使用時，讓下一位學生從乾淨的進度開始 -->
+                <div class="reset-progress-row">
+                    <button id="resetProgressBtn" class="reset-progress-btn">
+                        <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                        <span>重新開始（清除進度）</span>
+                    </button>
+                </div>
+                <p class="storage-hint" id="storageHint"></p>
             </div>
         </section>
 
@@ -145,9 +156,12 @@
 
                     <!-- Canvas/SVG Render Box -->
                     <div class="svg-container card">
-                        <svg id="gameGeometrySvg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet">
+                        <svg id="gameGeometrySvg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet"
+                             role="img" aria-labelledby="svgDesc">
                             <!-- Geometric objects will be injected dynamically -->
                         </svg>
+                        <!-- 圖形的文字描述，由 JS 依題目更新，供螢幕閱讀器讀出 -->
+                        <p id="svgDesc" class="sr-only"></p>
                         
                         <!-- Mini tutorial overlay for help -->
                         <div class="helper-tips">
@@ -180,8 +194,9 @@
         </section>
 
         <!-- QUESTION FEEDBACK DIALOG (MODAL OVERLAY) -->
-        <div id="feedbackOverlay" class="modal-overlay">
-            <canvas id="fireworksCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1;"></canvas>
+        <div id="feedbackOverlay" class="modal-overlay" role="dialog" aria-modal="true"
+             aria-labelledby="feedbackResultTitle" aria-describedby="feedbackExplanation">
+            <canvas id="fireworksCanvas" aria-hidden="true" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1;"></canvas>
             <div class="feedback-card card animate-pop" style="z-index: 2; position: relative;">
                 <div class="feedback-icon" id="feedbackIcon">
                     <!-- Dynamic check or cross -->
@@ -246,7 +261,10 @@
         </section>
     </div>
 
-    <!-- Script loading -->
+    <!-- Script loading：共用模組須在 game.js 之前載入 -->
+    <script src="../shared/storage.js"></script>
+    <script src="../shared/audio.js"></script>
+    <script src="../shared/shuffle.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

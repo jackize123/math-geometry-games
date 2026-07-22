@@ -1,114 +1,13 @@
 /**
  * 找高大作戰 - Core Game Script
+ *
+ * 音效引擎、進度儲存、隨機抽題等共用能力由 ../shared/ 的模組提供，
+ * 兩款遊戲共用同一份實作，避免同樣的邏輯各寫一遍而走樣。
  */
 
-// --- Audio Synthesizer (Web Audio API) ---
-class SoundEffects {
-    constructor() {
-        this.ctx = null;
-        this.enabled = true;
-    }
+// 共用音效引擎：指派 enabled 時會自動寫入 localStorage，達成跨頁記憶
+const sound = GeoAudio;
 
-    init() {
-        if (!this.ctx) {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    }
-
-    playCorrect() {
-        if (!this.enabled) return;
-        this.init();
-        const now = this.ctx.currentTime;
-        
-        // Sweet bell/chime sound
-        const osc1 = this.ctx.createOscillator();
-        const osc2 = this.ctx.createOscillator();
-        const gainNode = this.ctx.createGain();
-        
-        osc1.type = 'sine';
-        osc1.frequency.setValueAtTime(523.25, now); // C5
-        osc1.frequency.setValueAtTime(659.25, now + 0.08); // E5
-        osc1.frequency.setValueAtTime(783.99, now + 0.16); // G5
-        osc1.frequency.setValueAtTime(1046.50, now + 0.24); // C6
-        
-        osc2.type = 'triangle';
-        osc2.frequency.setValueAtTime(523.25, now);
-        osc2.frequency.setValueAtTime(659.25, now + 0.08);
-        osc2.frequency.setValueAtTime(783.99, now + 0.16);
-        osc2.frequency.setValueAtTime(1046.50, now + 0.24);
-        
-        gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.15, now + 0.05);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-        
-        osc1.connect(gainNode);
-        osc2.connect(gainNode);
-        gainNode.connect(this.ctx.destination);
-        
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + 0.6);
-        osc2.stop(now + 0.6);
-    }
-
-    playIncorrect() {
-        if (!this.enabled) return;
-        this.init();
-        const now = this.ctx.currentTime;
-        
-        // Gentle "boing" or low error sound
-        const osc = this.ctx.createOscillator();
-        const gainNode = this.ctx.createGain();
-        
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(180, now);
-        osc.frequency.exponentialRampToValueAtTime(100, now + 0.25);
-        
-        gainNode.gain.setValueAtTime(0, now);
-        gainNode.gain.linearRampToValueAtTime(0.12, now + 0.05);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        
-        // Lowpass filter to make it warmer / softer
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(400, now);
-        
-        osc.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(this.ctx.destination);
-        
-        osc.start(now);
-        osc.stop(now + 0.3);
-    }
-
-    playLevelComplete() {
-        if (!this.enabled) return;
-        this.init();
-        const now = this.ctx.currentTime;
-        
-        // Cheerful fanfare
-        const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; // C4, E4, G4, C5, E5, G5, C6
-        notes.forEach((freq, idx) => {
-            const osc = this.ctx.createOscillator();
-            const gainNode = this.ctx.createGain();
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now + idx * 0.1);
-            
-            gainNode.gain.setValueAtTime(0, now + idx * 0.1);
-            gainNode.gain.linearRampToValueAtTime(0.1, now + idx * 0.1 + 0.02);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
-            
-            osc.connect(gainNode);
-            gainNode.connect(this.ctx.destination);
-            
-            osc.start(now + idx * 0.1);
-            osc.stop(now + idx * 0.1 + 0.4);
-        });
-    }
-}
-
-const sound = new SoundEffects();
 
 // --- Questions Database ---
 // Coordinate Space: 500 x 380 (center approximately 250, 190)
@@ -127,77 +26,65 @@ const questionsData = {
                     // Correct: vertical from D(150,100) down to AB at (150,260)
                     line: [[150, 100], [150, 260]],
                     isCorrect: true,
-                    label: "紅色線段 (甲)",
-                    explanation: "正確！紅色線段從對邊頂點垂直到指定的底邊，並且有直角記號，代表這就是底邊相對應的「高」。",
+                    explanation: "正確！這條線段從對邊頂點垂直到指定的底邊，並且有直角記號，代表這就是底邊相對應的「高」。",
                     rightAngle: [[150, 250], [160, 250], [160, 260]] // square corner
                 },
                 {
                     // Slanted side DA (150,100) to (100,260)
                     line: [[150, 100], [100, 260]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是平行四邊形的「斜邊」，它跟指定的底邊不垂直，所以不是高。"
+                    explanation: "不對喔！這條線段是平行四邊形的「斜邊」，它跟指定的底邊不垂直，所以不是高。"
                 },
                 {
                     // Incorrect: vertical from C(430,100) to some random point inside? Or wait, let's make it slanted line
                     line: [[380, 260], [430, 100]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是平行四邊形的另一條「斜邊」，與底邊不垂直。"
+                    explanation: "不對喔！這條線段是平行四邊形的另一條「斜邊」，與底邊不垂直。"
                 },
                 {
                     // Perpendicular to the slanted side AD, starting from B(380,260)
                     line: [[380, 260], [280, 228]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段垂直於斜邊，它是以斜邊為「底」時的對應高，而不是以底部粗線為底的高。"
+                    explanation: "不對喔！這條線段垂直於斜邊，它是以斜邊為「底」時的對應高，而不是以底部粗線為底的高。"
                 }
             ]
         },
         {
             id: "l1_q2",
             shapeType: "parallelogram",
-            // Slanted vertical-ish parallelogram
-            shapePoints: [[150, 300], [250, 300], [350, 80], [250, 80]],
-            // Base is the slanted side AD (150,300) to (250,80)
-            basePoints: [[150, 300], [250, 80]],
+            // 教學重點：指定「斜邊」為底，高也會跟著變成斜的。
+            // 頂點 A(140,300) B(300,300) C(360,110) D(200,110)
+            //   AB ∥ CD（皆水平，長 160）、BC ∥ DA（向量 ±(60,-190)）
+            shapePoints: [[140, 300], [300, 300], [360, 110], [200, 110]],
+            basePoints: [[200, 110], [140, 300]], // 左側斜邊 DA 為底
             baseLabel: "底邊",
             candidates: [
                 {
-                    // Slanted bottom side
-                    line: [[150, 300], [250, 300]],
+                    // 下方水平邊
+                    line: [[140, 300], [300, 300]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是平行四邊形的底邊之一（與另一底邊不垂直）。"
+                    explanation: "不對喔！這條線段是平行四邊形下方的邊，它本身可以當成另一組底，但不是這條斜底邊的高。"
                 },
                 {
-                    // Perpendicular to base AD. Let's calculate: base vector is (100, -220). Normal vector is (220, 100).
-                    // Correct: starts from C(350,80) and goes perpendicular to AD. 
-                    // Let's place a visual perpendicular line: from (250,300) to (350,80)? No, that's BC.
-                    // Correct line: from C(350,80) perpendicular to AD line.
-                    // Visually: from (350,80) to (190, 212) or similar. Let's design coordinates cleanly:
-                    // Base AD line: AD is slanted. Let's make base be BC (250,80) to (350,80)?
-                    // Ah, let's make the base be the top side BC: (250,80) to (350,80).
-                    // Then the height is vertical: from bottom side line up to top side line.
-                    line: [[300, 80], [300, 300]],
+                    // 正解：從對角頂點 B(300,300) 垂直落到斜底邊 DA。
+                    // 底邊向量 d=(-60,190)，DB=(100,190)，
+                    // t = (DB·d)/|d|² = 30100/39700 = 0.758，垂足 = D + t·d ≈ (154, 254)
+                    line: [[300, 300], [154, 254]],
                     isCorrect: true,
-                    label: "藍色線段 (乙)",
-                    explanation: "正確！藍色線段垂直於平行的上下兩底邊，連接了底邊與其對邊，是相對應的「高」。",
-                    rightAngle: [[300, 90], [310, 90], [310, 80]]
+                    explanation: "正確！指定的底是左邊那條斜邊，所以高要從對面的頂點垂直畫到這條斜邊上。高看起來也是斜的，但它和底邊確實成直角。",
+                    rightAngle: [[150, 265], [162, 269], [165, 258]]
                 },
                 {
-                    // A slanted height line
-                    line: [[250, 80], [150, 300]],
+                    // 右側斜邊
+                    line: [[300, 300], [360, 110]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是平行四邊形的側邊，與底邊並不垂直。"
+                    explanation: "不對喔！這條線段是右邊的斜邊，它和指定的底邊平行，兩條平行線永遠不會垂直。"
                 },
                 {
-                    // Perpendicular to AD but starting from B?
-                    line: [[250, 300], [320, 150]],
+                    // 常見誤答：以水平邊為底時的高
+                    line: [[250, 110], [250, 300]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段與底邊不垂直，且方向不正確。"
+                    explanation: "不對喔！這條垂直線段確實是一條高，但它對應的底是水平的那組邊。這題指定的底換成了斜邊，高也必須跟著換方向。"
                 }
             ]
         },
@@ -216,30 +103,26 @@ const questionsData = {
                     // Slanted line connecting them
                     line: [[160, 100], [360, 140]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是平行四邊形的上方斜邊，它與左側垂直的底邊並不垂直。"
+                    explanation: "不對喔！這條線段是平行四邊形的上方斜邊，它與左側垂直的底邊並不垂直。"
                 },
                 {
                     // Slanted line inside
                     line: [[160, 200], [360, 240]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段與左邊垂直的「底」有傾斜，並非垂直關係。"
+                    explanation: "不對喔！這條線段與左邊垂直的「底」有傾斜，並非垂直關係。"
                 },
                 {
                     // Correct height: strictly horizontal! From (160, 200) to (360, 200)
                     line: [[160, 200], [360, 200]],
                     isCorrect: true,
-                    label: "橘色線段 (丙)",
-                    explanation: "正確！因為底邊是左邊垂直的線段，與它相對應的「高」必須與它垂直，也就是水平方向的橘色線段。",
+                    explanation: "正確！因為底邊是左邊垂直的線段，與它相對應的「高」必須與它垂直，也就是水平方向的這條線段。",
                     rightAngle: [[170, 200], [170, 210], [160, 210]]
                 },
                 {
                     // Diagonal
                     line: [[160, 280], [360, 140]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段是對角線，並不與底邊垂直。"
+                    explanation: "不對喔！這條線段是對角線，並不與底邊垂直。"
                 }
             ]
         },
@@ -255,29 +138,25 @@ const questionsData = {
                     // Slanted edge
                     line: [[120, 140], [80, 240]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是側邊（斜邊），不與上方的底邊垂直。"
+                    explanation: "不對喔！這條線段是側邊（斜邊），不與上方的底邊垂直。"
                 },
                 {
                     // Slanted line
                     line: [[220, 140], [180, 240]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是傾斜的，不是垂直的高度。"
+                    explanation: "不對喔！這條線段是傾斜的，不是垂直的高度。"
                 },
                 {
                     // Perpendicular to slanted side
                     line: [[380, 240], [348, 142]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段不是與上方指定底邊垂直的高。"
+                    explanation: "不對喔！這條線段不是與上方指定底邊垂直的高。"
                 },
                 {
                     // Correct: vertical from bottom to top base
                     line: [[250, 140], [250, 240]],
                     isCorrect: true,
-                    label: "綠色線段 (丁)",
-                    explanation: "正確！綠色線段垂直於上方的底邊，且連接到對邊，這就是對應的「高」。",
+                    explanation: "正確！這條線段垂直於上方的底邊，且連接到對邊，這就是對應的「高」。",
                     rightAngle: [[250, 150], [260, 150], [260, 140]]
                 }
             ]
@@ -296,30 +175,128 @@ const questionsData = {
                     // Correct: horizontal line from (180, 180) to (320, 180)
                     line: [[180, 180], [320, 180]],
                     isCorrect: true,
-                    label: "紅色線段 (甲)",
-                    explanation: "正確！底邊在右側垂直邊，因此對應的高必須是與其垂直的水平線段（紅色線段）。",
+                    explanation: "正確！底邊在右側垂直邊，因此對應的高必須是與其垂直的水平線段（這條線段）。",
                     rightAngle: [[310, 180], [310, 190], [320, 190]]
                 },
                 {
                     // Top slanted side
                     line: [[180, 120], [320, 80]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是上方的斜邊，不是垂直於底邊的高。"
+                    explanation: "不對喔！這條線段是上方的斜邊，不是垂直於底邊的高。"
                 },
                 {
                     // Slanted cross-section
                     line: [[180, 240], [320, 200]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是傾斜的，它跟右側的底邊沒有垂直關係。"
+                    explanation: "不對喔！這條線段是傾斜的，它跟右側的底邊沒有垂直關係。"
                 },
                 {
                     // Bottom slanted side
                     line: [[180, 300], [320, 260]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段是下方的斜邊，不能作為指定底邊的高。"
+                    explanation: "不對喔！這條線段是下方的斜邊，不能作為指定底邊的高。"
+                }
+            ]
+        },
+        {
+            id: "l1_q6", // 標準平行四邊形，底在下方
+            shapeType: "parallelogram",
+            shapePoints: [[90, 270], [350, 270], [410, 110], [150, 110]],
+            basePoints: [[90, 270], [350, 270]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 左側斜邊
+                    line: [[90, 270], [150, 110]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是平行四邊形的斜邊，它和指定的底邊並不垂直。"
+                },
+                {
+                    // 正解：從上邊垂直落到下底
+                    line: [[200, 110], [200, 270]],
+                    isCorrect: true,
+                    explanation: "正確！這條線段從上方的對邊垂直落到指定的底邊，兩端都碰到平行的兩邊，正是相對應的「高」。",
+                    rightAngle: [[200, 260], [210, 260], [210, 270]]
+                },
+                {
+                    // 對角線
+                    line: [[90, 270], [410, 110]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是平行四邊形的對角線，雖然穿過圖形內部，但沒有和底邊垂直。"
+                },
+                {
+                    // 垂直於斜邊（是「以斜邊為底」時的高）
+                    line: [[350, 270], [266, 238]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段垂直的是斜邊，它是把斜邊當成底時的高，不是這條底邊的高。"
+                }
+            ]
+        },
+        {
+            id: "l1_q7", // 指定上邊為底
+            shapeType: "parallelogram",
+            shapePoints: [[120, 290], [360, 290], [420, 130], [180, 130]],
+            basePoints: [[180, 130], [420, 130]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 側邊
+                    line: [[180, 130], [120, 290]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是平行四邊形的側邊，和上方指定的底邊是傾斜的關係。"
+                },
+                {
+                    // 與側邊平行的內部斜線
+                    line: [[300, 130], [240, 290]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段雖然連接了上下兩邊，但它是斜的，沒有和底邊形成直角。"
+                },
+                {
+                    // 正解：垂直連接上下兩平行邊
+                    line: [[250, 130], [250, 290]],
+                    isCorrect: true,
+                    explanation: "正確！底邊在上方時，高一樣是垂直連接兩條平行邊的線段。高的位置可以左右移動，只要保持垂直就都算數。",
+                    rightAngle: [[250, 140], [260, 140], [260, 130]]
+                },
+                {
+                    // 對角線
+                    line: [[120, 290], [420, 130]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是對角線，它連接的是兩個頂點，並沒有垂直於底邊。"
+                }
+            ]
+        },
+        {
+            id: "l1_q8", // 平行邊在左右，高為水平方向
+            shapeType: "parallelogram",
+            shapePoints: [[150, 310], [150, 130], [350, 90], [350, 270]],
+            basePoints: [[150, 130], [150, 310]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 上方斜邊
+                    line: [[150, 130], [350, 90]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是上方的斜邊，和左側垂直的底邊並不垂直。"
+                },
+                {
+                    // 正解：水平橫跨左右兩平行邊
+                    line: [[150, 200], [350, 200]],
+                    isCorrect: true,
+                    explanation: "正確！底邊是左側的垂直線段，所以它的高必須和它垂直，也就是這條水平線段。高的方向會跟著底邊改變，不一定是「上下」方向。",
+                    rightAngle: [[160, 200], [160, 210], [150, 210]]
+                },
+                {
+                    // 內部傾斜線
+                    line: [[150, 250], [350, 210]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段雖然橫跨了圖形，但它是斜的，和左側的底邊沒有形成直角。"
+                },
+                {
+                    // 對角線
+                    line: [[150, 310], [350, 90]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是對角線，不是垂直於底邊的高。"
                 }
             ]
         }
@@ -336,14 +313,12 @@ const questionsData = {
                     // Slanted left side
                     line: [[150, 270], [250, 96.8]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是正三角形的斜邊，跟底邊不垂直。"
+                    explanation: "不對喔！這條線段是正三角形的斜邊，跟底邊不垂直。"
                 },
                 {
                     // Correct: vertical height from top vertex to base center
                     line: [[250, 96.8], [250, 270]],
                     isCorrect: true,
-                    label: "藍色線段 (乙)",
                     explanation: "正確！正三角形從頂點垂降到對面底邊的垂直線段就是對應的「高」。",
                     rightAngle: [[250, 260], [260, 260], [260, 270]]
                 },
@@ -351,16 +326,14 @@ const questionsData = {
                     // Slanted line
                     line: [[250, 96.8], [200, 270]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段雖然從頂點出發，但沒有與底邊垂直。"
+                    explanation: "不對喔！這條線段雖然從頂點出發，但沒有與底邊垂直。"
                 },
                 {
                     // A line from bottom corner to opposite side perpendicularly
                     // That is the height for the slanted side base!
                     line: [[150, 270], [300, 183.4]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段雖然與右邊垂直，但那是「右邊為底」時的高，目前指定的底是「底部的黑線」喔！"
+                    explanation: "不對喔！這條線段雖然與右邊垂直，但那是「右邊為底」時的高，目前指定的底是「底部的黑線」喔！"
                 }
             ]
         },
@@ -377,31 +350,29 @@ const questionsData = {
                     // Slanted side BC
                     line: [[350, 250], [250, 100]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是另外一條斜邊，不是指定底邊的高。"
+                    explanation: "不對喔！這條線段是另外一條斜邊，不是指定底邊的高。"
                 },
                 {
                     // Vertical line from C to AB (not perpendicular to AC)
                     line: [[250, 100], [250, 250]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是以底邊 AB 為底時的高，現在指定的底是左邊的斜邊。"
+                    explanation: "不對喔！這條線段是以底邊 AB 為底時的高，現在指定的底是左邊的斜邊。"
                 },
                 {
-                    // Correct: perpendicular from opposite vertex B(350,250) to base AC
-                    // Visually let's place it at: from (350, 250) to (212, 158)
-                    line: [[350, 250], [202, 172]],
+                    // 正解：從對角頂點 B(350,250) 垂直落到底邊 AC。
+                    // 垂足由投影公式求得：底邊向量 d=(100,-150)，AB=(200,0)，
+                    // t = (AB·d)/|d|² = 20000/32500 = 0.6154，垂足 = A + t·d = (212, 158)。
+                    // 這個座標讓點積剛好為 0，是真正的垂直。
+                    line: [[350, 250], [212, 158]],
                     isCorrect: true,
-                    label: "橘色線段 (丙)",
-                    explanation: "正確！橘色線段從對角頂點出發，垂直地連接到指定的斜底邊，這就是相對應的「高」。",
-                    rightAngle: [[208, 163], [217, 169], [211, 178]]
+                    explanation: "正確！這條線段從對角頂點出發，垂直地連接到指定的斜底邊，這就是相對應的「高」。",
+                    rightAngle: [[219, 148], [229, 155], [222, 165]]
                 },
                 {
                     // Line from B to AC but not perpendicular (slanted)
                     line: [[350, 250], [180, 205]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段雖然連到指定的底邊，但是與其不垂直。"
+                    explanation: "不對喔！這條線段雖然連到指定的底邊，但是與其不垂直。"
                 }
             ]
         },
@@ -418,30 +389,26 @@ const questionsData = {
                     // Correct: The vertical leg AC itself! It goes from (150,260) to (150,100)
                     line: [[150, 260], [150, 100]],
                     isCorrect: true,
-                    label: "紅色線段 (甲)",
-                    explanation: "正確！直角三角形非常特殊，當一條直角邊為「底」時，另一條直角邊（紅色線段）就是它的「高」。",
+                    explanation: "正確！直角三角形非常特殊，當一條直角邊為「底」時，另一條直角邊（這條線段）就是它的「高」。",
                     rightAngle: [[150, 250], [160, 250], [160, 260]]
                 },
                 {
                     // Hypotenuse BC
                     line: [[350, 260], [150, 100]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是直角三角形的「斜邊」，它跟指定的底邊並不垂直。"
+                    explanation: "不對喔！這條線段是直角三角形的「斜邊」，它跟指定的底邊並不垂直。"
                 },
                 {
                     // Height perpendicular to hypotenuse
                     line: [[150, 260], [212, 210]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是「斜邊為底」時的對應高，不是以底部直角邊為底的高。"
+                    explanation: "不對喔！這條線段是「斜邊為底」時的對應高，不是以底部直角邊為底的高。"
                 },
                 {
                     // Slanted line inside
                     line: [[150, 100], [250, 260]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段從頂點出發到斜邊中點，但它並不與底邊垂直。"
+                    explanation: "不對喔！這條線段從頂點出發到斜邊中點，但它並不與底邊垂直。"
                 }
             ]
         },
@@ -463,29 +430,25 @@ const questionsData = {
                     // Slanted side CA
                     line: [[150, 120], [220, 260]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是鈍角三角形的側邊，它不與底邊垂直。"
+                    explanation: "不對喔！這條線段是鈍角三角形的側邊，它不與底邊垂直。"
                 },
                 {
                     // Slanted side CB
                     line: [[150, 120], [380, 260]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是長斜邊，跟底邊不垂直。"
+                    explanation: "不對喔！這條線段是長斜邊，跟底邊不垂直。"
                 },
                 {
                     // Incorrect height inside (not perpendicular to base)
                     line: [[150, 120], [280, 260]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段雖然畫在三角形內部，但它與底邊傾斜，不是垂直的高。"
+                    explanation: "不對喔！這條線段雖然畫在三角形內部，但它與底邊傾斜，不是垂直的高。"
                 },
                 {
                     // Correct: vertical line outside to extension line
                     line: [[150, 120], [150, 260]],
                     isCorrect: true,
-                    label: "綠色線段 (丁)",
-                    explanation: "正確！這是鈍角三角形的經典題目。當底邊是底部短邊時，高會在「外部」，必須畫延長線，並從頂點向下作垂直線（綠色線段）。",
+                    explanation: "正確！這是鈍角三角形的經典題目。當底邊是底部短邊時，高會在「外部」，必須畫延長線，並從頂點向下作垂直線（這條線段）。",
                     rightAngle: [[150, 250], [160, 250], [160, 260]]
                 }
             ]
@@ -506,30 +469,129 @@ const questionsData = {
                     // Correct: from C(220,200) to (220,280)
                     line: [[220, 200], [220, 280]],
                     isCorrect: true,
-                    label: "紅色線段 (甲)",
-                    explanation: "正確！雖然這是一個鈍角三角形，但因為指定的底是長邊，對角頂點垂降下來的高（紅色線段）仍然會落在三角形的內部。",
+                    explanation: "正確！雖然這是一個鈍角三角形，但因為指定的底是長邊，對角頂點垂降下來的高（這條線段）仍然會落在三角形的內部。",
                     rightAngle: [[220, 270], [230, 270], [230, 280]]
                 },
                 {
                     // Slanted edge CA
                     line: [[220, 200], [100, 280]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是側邊，跟底邊不垂直。"
+                    explanation: "不對喔！這條線段是側邊，跟底邊不垂直。"
                 },
                 {
                     // Slanted edge CB
                     line: [[220, 200], [400, 280]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是另一條側邊，不是垂直的高。"
+                    explanation: "不對喔！這條線段是另一條側邊，不是垂直的高。"
                 },
                 {
                     // Slanted line
                     line: [[220, 200], [300, 280]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段不是垂直的垂線。"
+                    explanation: "不對喔！這條線段不是垂直的垂線。"
+                }
+            ]
+        },
+        {
+            id: "l2_q6", // 直角三角形，其中一股就是高
+            shapeType: "triangle",
+            shapePoints: [[120, 290], [380, 290], [120, 120]],
+            basePoints: [[120, 290], [380, 290]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 斜邊
+                    line: [[120, 120], [380, 290]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是直角三角形的斜邊，它和底邊是傾斜的關係，不是高。"
+                },
+                {
+                    // 中線（連到底邊中點，但不垂直）
+                    line: [[120, 120], [250, 290]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段雖然從頂點連到底邊上，但它和底邊沒有形成直角。高一定要垂直，碰到中點並不算數。"
+                },
+                {
+                    // 正解：左邊那一股本身就是高
+                    line: [[120, 120], [120, 290]],
+                    isCorrect: true,
+                    explanation: "正確！直角三角形的兩股互相垂直，所以當底邊是其中一股時，另一股本身就是相對應的「高」，不必另外再畫。",
+                    rightAngle: [[120, 280], [130, 280], [130, 290]]
+                },
+                {
+                    // 以斜邊為底時的高
+                    line: [[120, 290], [198, 171]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段垂直的是斜邊，它是把斜邊當作底時的高，和目前指定的底邊不相符。"
+                }
+            ]
+        },
+        {
+            id: "l2_q7", // 鈍角三角形，高落在底邊的延長線上
+            shapeType: "triangle",
+            shapePoints: [[150, 280], [330, 280], [430, 120]],
+            basePoints: [[150, 280], [330, 280]],
+            baseLabel: "底邊",
+            extensionLine: [[330, 280], [440, 280]], // 底邊往右延長，高才有落腳處
+            candidates: [
+                {
+                    // 邊 BC
+                    line: [[330, 280], [430, 120]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是三角形的一個邊，和底邊並不垂直。"
+                },
+                {
+                    // 正解：外部高
+                    line: [[430, 120], [430, 280]],
+                    isCorrect: true,
+                    explanation: "正確！這是鈍角三角形的特殊情況：高落在底邊的「延長線」上，跑到圖形外面去了。只要它垂直於底邊所在的直線，就是正確的高。",
+                    rightAngle: [[430, 270], [420, 270], [420, 280]]
+                },
+                {
+                    // 邊 AC
+                    line: [[150, 280], [430, 120]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是三角形最長的那個邊，不是垂直於底邊的高。"
+                },
+                {
+                    // 從頂點連到底邊上，但不垂直
+                    line: [[430, 120], [240, 280]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段雖然從頂點連到了底邊上，但它是斜的。高必須和底邊成直角。"
+                }
+            ]
+        },
+        {
+            id: "l2_q8", // 等腰三角形，指定「腰」為底
+            shapeType: "triangle",
+            shapePoints: [[250, 100], [150, 300], [350, 300]],
+            basePoints: [[250, 100], [150, 300]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 水平底邊（不是這題指定的底）
+                    line: [[150, 300], [350, 300]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是三角形下方的邊，它本身是一個「底」，不是這題指定底邊的高。"
+                },
+                {
+                    // 右腰
+                    line: [[250, 100], [350, 300]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是另一條腰，和指定的底邊只在頂點相接，並沒有垂直。"
+                },
+                {
+                    // 常見誤答：以水平邊為底時的高
+                    line: [[250, 100], [250, 300]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條垂直線段確實是一條高，但它對應的底是下方的水平邊，不是這題指定的斜邊。底換了，高也要跟著換。"
+                },
+                {
+                    // 正解：從對角頂點垂直到指定的腰
+                    line: [[350, 300], [190, 220]],
+                    isCorrect: true,
+                    explanation: "正確！指定的底是左邊那條斜的腰，所以高要從對面的頂點垂直畫到這條腰上，看起來也是斜的。",
+                    rightAngle: [[185, 231], [195, 236], [201, 225]]
                 }
             ]
         }
@@ -547,30 +609,26 @@ const questionsData = {
                     // Slanted leg DA
                     line: [[180, 120], [100, 280]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是等腰梯形的斜側邊，與底邊不垂直。"
+                    explanation: "不對喔！這條線段是等腰梯形的斜側邊，與底邊不垂直。"
                 },
                 {
                     // Correct: vertical from D(180,120) to base AB at (180,280)
                     line: [[180, 120], [180, 280]],
                     isCorrect: true,
-                    label: "藍色線段 (乙)",
-                    explanation: "正確！藍色線段是連接上下平行底邊的垂直距離，這就是梯形的「高」。",
+                    explanation: "正確！這條線段是連接上下平行底邊的垂直距離，這就是梯形的「高」。",
                     rightAngle: [[180, 270], [190, 270], [190, 280]]
                 },
                 {
                     // Slanted line inside
                     line: [[180, 120], [230, 280]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是傾斜的，不符合垂直的要求。"
+                    explanation: "不對喔！這條線段是傾斜的，不符合垂直的要求。"
                 },
                 {
                     // Diagonal
                     line: [[180, 120], [400, 280]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段是梯形的對角線，不是高。"
+                    explanation: "不對喔！這條線段是梯形的對角線，不是高。"
                 }
             ]
         },
@@ -586,30 +644,26 @@ const questionsData = {
                     // Slanted leg CB
                     line: [[320, 120], [380, 280]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是右邊的斜側邊，不與底邊垂直。"
+                    explanation: "不對喔！這條線段是右邊的斜側邊，不與底邊垂直。"
                 },
                 {
                     // Slanted internal line
                     line: [[320, 120], [250, 280]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是傾斜的線段。"
+                    explanation: "不對喔！這條線段是傾斜的線段。"
                 },
                 {
                     // Correct: vertical leg DA itself (150,120) to (150,280)
                     line: [[150, 120], [150, 280]],
                     isCorrect: true,
-                    label: "橘色線段 (丙)",
-                    explanation: "正確！直角梯形本身就有一條與上下底垂直的側邊，這條直角邊（橘色線段）就是這個直角梯形的高。",
+                    explanation: "正確！直角梯形本身就有一條與上下底垂直的側邊，這條直角邊（這條線段）就是這個直角梯形的高。",
                     rightAngle: [[150, 270], [160, 270], [160, 280]]
                 },
                 {
                     // Upper base CD
                     line: [[150, 120], [320, 120]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段是梯形的上底，不是垂直的高。"
+                    explanation: "不對喔！這條線段是梯形的上底，不是垂直的高。"
                 }
             ]
         },
@@ -629,30 +683,26 @@ const questionsData = {
                     // Slanted top side BC
                     line: [[360, 140], [180, 100]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是梯形的上方側邊，不與底邊垂直。"
+                    explanation: "不對喔！這條線段是梯形的上方側邊，不與底邊垂直。"
                 },
                 {
                     // Slanted inside
                     line: [[360, 200], [180, 240]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是傾斜的，不與垂直底邊垂直。"
+                    explanation: "不對喔！這條線段是傾斜的，不與垂直底邊垂直。"
                 },
                 {
                     // Slanted bottom side DA
                     line: [[180, 300], [360, 260]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是下方側邊，不是高。"
+                    explanation: "不對喔！這條線段是下方側邊，不是高。"
                 },
                 {
                     // Correct: horizontal line connecting left and right parallel bases!
                     // e.g. from (360, 200) to (180, 200)
                     line: [[360, 200], [180, 200]],
                     isCorrect: true,
-                    label: "綠色線段 (丁)",
-                    explanation: "正確！當梯形的平行底邊位於左右兩側時，它的高必須是水平方向的垂直線段（綠色線段），代表左右兩平行底邊的距離。",
+                    explanation: "正確！當梯形的平行底邊位於左右兩側時，它的高必須是水平方向的垂直線段（這條線段），代表左右兩平行底邊的距離。",
                     rightAngle: [[190, 200], [190, 210], [180, 210]]
                 }
             ]
@@ -671,30 +721,26 @@ const questionsData = {
                     // Correct: horizontal height from (160, 200) to (340, 200)
                     line: [[160, 200], [340, 200]],
                     isCorrect: true,
-                    label: "紅色線段 (甲)",
-                    explanation: "正確！因為平行的兩底邊在左右，指定右側邊為底時，高就是水平橫跨兩底邊的紅色垂直線段。",
+                    explanation: "正確！因為平行的兩底邊在左右，指定右側邊為底時，高就是水平橫跨兩底邊的這條線段。",
                     rightAngle: [[330, 200], [330, 210], [340, 210]]
                 },
                 {
                     // Left base
                     line: [[160, 120], [160, 280]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是另一邊的底，不是高。"
+                    explanation: "不對喔！這條線段是另一邊的底，不是高。"
                 },
                 {
                     // Diagonal
                     line: [[160, 120], [340, 240]],
                     isCorrect: false,
-                    label: "橘色線段 (丙)",
-                    explanation: "不對喔！橘色線段是對角斜線，沒有與右邊底邊垂直。"
+                    explanation: "不對喔！這條線段是對角斜線，沒有與右邊底邊垂直。"
                 },
                 {
                     // Slanted edge
                     line: [[160, 280], [340, 240]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段是底部的斜側邊，與底邊不垂直。"
+                    explanation: "不對喔！這條線段是底部的斜側邊，與底邊不垂直。"
                 }
             ]
         },
@@ -711,30 +757,128 @@ const questionsData = {
                     // Slanted leg
                     line: [[200, 120], [100, 260]],
                     isCorrect: false,
-                    label: "紅色線段 (甲)",
-                    explanation: "不對喔！紅色線段是側邊，跟底邊不垂直。"
+                    explanation: "不對喔！這條線段是側邊，跟底邊不垂直。"
                 },
                 {
                     // Slanted line inside
                     line: [[250, 120], [210, 260]],
                     isCorrect: false,
-                    label: "藍色線段 (乙)",
-                    explanation: "不對喔！藍色線段是斜的，不是垂直的高度。"
+                    explanation: "不對喔！這條線段是斜的，不是垂直的高度。"
                 },
                 {
                     // Correct: vertical from top base to bottom base
                     line: [[250, 120], [250, 260]],
                     isCorrect: true,
-                    label: "橘色線段 (丙)",
-                    explanation: "正確！橘色線段垂直於指定的上底邊，並且連接到下底邊，這就是梯形的高度。",
+                    explanation: "正確！這條線段垂直於指定的上底邊，並且連接到下底邊，這就是梯形的高度。",
                     rightAngle: [[250, 130], [260, 130], [260, 120]]
                 },
                 {
                     // Lower base
                     line: [[100, 260], [400, 260]],
                     isCorrect: false,
-                    label: "綠色線段 (丁)",
-                    explanation: "不對喔！綠色線段是下底，並非與上底垂直的高。"
+                    explanation: "不對喔！這條線段是下底，並非與上底垂直的高。"
+                }
+            ]
+        },
+        {
+            id: "l3_q6", // 直角梯形，指定下底
+            shapeType: "trapezoid",
+            shapePoints: [[130, 290], [380, 290], [380, 150], [230, 150]],
+            basePoints: [[130, 290], [380, 290]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 斜腰
+                    line: [[130, 290], [230, 150]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是梯形傾斜的那條腰，和下底沒有形成直角。"
+                },
+                {
+                    // 對角線
+                    line: [[130, 290], [380, 150]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是梯形的對角線，穿過內部但沒有垂直於底邊。"
+                },
+                {
+                    // 正解：內部垂直線段
+                    line: [[300, 150], [300, 290]],
+                    isCorrect: true,
+                    explanation: "正確！梯形的高是垂直連接上底與下底的線段。這個直角梯形右邊那條腰剛好也是高，但畫在中間、只要保持垂直，長度完全相同。",
+                    rightAngle: [[300, 280], [310, 280], [310, 290]]
+                },
+                {
+                    // 與斜腰平行的內部斜線
+                    line: [[200, 290], [260, 150]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段雖然連接了上下兩底，但它是斜的，不能當作高。"
+                }
+            ]
+        },
+        {
+            id: "l3_q7", // 等腰梯形，指定上底
+            shapeType: "trapezoid",
+            shapePoints: [[120, 290], [380, 290], [320, 140], [180, 140]],
+            basePoints: [[180, 140], [320, 140]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 左腰
+                    line: [[120, 290], [180, 140]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是等腰梯形的左腰，和上底是傾斜的關係。"
+                },
+                {
+                    // 正解
+                    line: [[250, 140], [250, 290]],
+                    isCorrect: true,
+                    explanation: "正確！不論指定的是上底還是下底，梯形的高都是垂直連接兩條平行底邊的線段，長度都一樣。",
+                    rightAngle: [[250, 150], [260, 150], [260, 140]]
+                },
+                {
+                    // 右腰
+                    line: [[380, 290], [320, 140]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是右腰，它和上底沒有垂直。"
+                },
+                {
+                    // 對角線
+                    line: [[180, 140], [380, 290]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是對角線，連接的是兩個頂點，不是垂直的高。"
+                }
+            ]
+        },
+        {
+            id: "l3_q8", // 平行邊在左右的梯形，高為水平方向
+            shapeType: "trapezoid",
+            shapePoints: [[160, 300], [160, 120], [360, 160], [360, 260]],
+            basePoints: [[160, 120], [160, 300]],
+            baseLabel: "底邊",
+            candidates: [
+                {
+                    // 上方斜邊
+                    line: [[160, 120], [360, 160]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是梯形的腰，和左側垂直的底邊並不垂直。"
+                },
+                {
+                    // 下方斜邊
+                    line: [[160, 300], [360, 260]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是另一條腰，同樣沒有和指定的底邊形成直角。"
+                },
+                {
+                    // 對角線
+                    line: [[160, 300], [360, 160]],
+                    isCorrect: false,
+                    explanation: "不對喔！這條線段是對角線，不是垂直於底邊的高。"
+                },
+                {
+                    // 正解：水平橫跨左右兩平行邊
+                    line: [[160, 210], [360, 210]],
+                    isCorrect: true,
+                    explanation: "正確！這個梯形的兩條平行邊在左右兩側，所以高是水平方向的線段。判斷高的關鍵永遠是「和指定的底垂直」，而不是「看起來是不是站直的」。",
+                    rightAngle: [[170, 210], [170, 220], [160, 220]]
                 }
             ]
         }
@@ -742,18 +886,31 @@ const questionsData = {
 };
 
 // --- Game State Management ---
+const GAME_ID = 'find-height';
+
+// 每關題庫有 8 題，每次隨機抽 5 題作答，讓學生重玩時不會靠背答案位置通關
+const QUESTIONS_PER_LEVEL = 5;
+
+// 使用者若在系統設定中要求減少動態效果，就不播放煙火動畫
+const prefersReducedMotion = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 const gameState = {
     currentScreen: 'welcomeScreen',
     currentLevel: null,
     currentQuestionIndex: 0,
     score: 0,
     errorsInLevel: 0,
-    levelHistory: {
-        1: { stars: 0, completed: false },
-        2: { stars: 0, completed: false },
-        3: { stars: 0, completed: false }
-    }
+    // 本關實際作答的題目快照（已抽題、已洗選項）。
+    // 抽樣只在 startLevel 發生一次，之後渲染與判分都讀這份，確保索引與資料全程一致。
+    activeQuestions: [],
+    levelHistory: GeoStorage.loadProgress(GAME_ID)
 };
+
+/** 把目前的關卡成績寫回 localStorage */
+function persistProgress() {
+    GeoStorage.saveProgress(GAME_ID, gameState.levelHistory);
+}
 
 // --- UI Navigation Helper ---
 function showScreen(screenId) {
@@ -891,68 +1048,99 @@ function renderQuestionGeometry(question) {
 }
 
 // --- Gameplay Flow Controller ---
+
+// 選項的顏色與代號由索引決定，不再寫死在題庫裡。
+// 這是選項能安全洗牌的前提：洗牌後第 n 個選項一定拿到第 n 個顏色與代號。
+const CHOICE_COLORS = ['red', 'blue', 'orange', 'green'];
+const CHOICE_COLOR_NAMES = ['紅色', '藍色', '橘色', '綠色'];
+const CHOICE_ORDINALS = ['甲', '乙', '丙', '丁'];
+
+const LEVEL_NAMES = { 1: '平行四邊形', 2: '三角形', 3: '梯形' };
+const LEVEL_TITLES = { 1: '第一關：平行四邊形', 2: '第二關：三角形', 3: '第三關：梯形' };
+
+function getChoiceLabel(idx) {
+    return `${CHOICE_COLOR_NAMES[idx]}線段 (${CHOICE_ORDINALS[idx]})`;
+}
+
 function startLevel(levelNum) {
     gameState.currentLevel = levelNum;
     gameState.currentQuestionIndex = 0;
     gameState.score = 0;
     gameState.errorsInLevel = 0;
-    
-    // Update screen headers
-    let title = "第一關：平行四邊形";
-    if (levelNum === 2) title = "第二關：三角形";
-    if (levelNum === 3) title = "第三關：梯形";
-    document.querySelector('.progress-title').textContent = title;
-    
+
+    // 從該關題庫抽題，並各自洗亂四個選項的順序。
+    // 用淺拷貝換掉 candidates，原始 questionsData 保持不變，下一輪才能重新抽到完整題庫。
+    gameState.activeQuestions = GeoRandom
+        .sample(questionsData[levelNum], QUESTIONS_PER_LEVEL)
+        .map(q => Object.assign({}, q, { candidates: GeoRandom.shuffle(q.candidates) }));
+
+    document.querySelector('.progress-title').textContent = LEVEL_TITLES[levelNum];
+
     loadQuestion();
     showScreen('gameScreen');
 }
 
 function loadQuestion() {
-    const levelQuestions = questionsData[gameState.currentLevel];
+    const levelQuestions = gameState.activeQuestions;
     const currentQ = levelQuestions[gameState.currentQuestionIndex];
-    
+
     // Update progress bar & score
     const totalQ = levelQuestions.length;
     const progressPercent = ((gameState.currentQuestionIndex + 1) / totalQ) * 100;
     document.getElementById('progressBarFill').style.width = `${progressPercent}%`;
     document.getElementById('progressText').textContent = `第 ${gameState.currentQuestionIndex + 1} / ${totalQ} 題`;
     document.getElementById('currentScore').textContent = `得分：${gameState.score}`;
-    
+
     // Render SVG
     renderQuestionGeometry(currentQ);
-    
+    updateSvgDescription(currentQ);
+
     // Populate Option Buttons
     currentQ.candidates.forEach((cand, idx) => {
         const btn = document.getElementById(`btnChoice${idx}`);
-        btn.querySelector('.choice-text').textContent = cand.label;
-        btn.className = `choice-btn color-${getBtnColorName(idx)}`;
+        btn.querySelector('.choice-text').textContent = getChoiceLabel(idx);
+        btn.className = `choice-btn color-${CHOICE_COLORS[idx]}`;
         btn.disabled = false;
+        btn.setAttribute('aria-label', `選項${CHOICE_ORDINALS[idx]}：${CHOICE_COLOR_NAMES[idx]}線段`);
     });
 }
 
-function getBtnColorName(idx) {
-    const colors = ['red', 'blue', 'orange', 'green'];
-    return colors[idx] || 'red';
+/** 更新圖形的文字描述，讓螢幕閱讀器使用者也知道畫面上有什麼 */
+function updateSvgDescription(question) {
+    const desc = document.getElementById('svgDesc');
+    if (!desc) return;
+    const shapeName = LEVEL_NAMES[gameState.currentLevel] || '圖形';
+    desc.textContent = `圖中是一個${shapeName}，黑色粗線標示指定的底邊。`
+        + `圖上另有四條候選線段，依序以紅色、藍色、橘色、綠色繪製，`
+        + `對應甲、乙、丙、丁四個選項，請判斷哪一條才是這條底邊的高。`;
 }
 
-// Hover linking between Option Buttons and SVG lines
-function setupHoverListeners() {
+/**
+ * 建立選項按鈕與圖形線段的連動。
+ * 除了滑鼠 hover，也綁定 focus/blur——否則使用鍵盤 Tab 的學生
+ * 在圖上完全看不到目前選到哪一條線段。
+ */
+function setupChoiceInteractions() {
     for (let idx = 0; idx < 4; idx++) {
         const btn = document.getElementById(`btnChoice${idx}`);
-        
-        btn.addEventListener('mouseenter', () => {
+
+        const highlight = () => {
             const svgLine = document.getElementById(`svgHeightLine_${idx}`);
-            if (svgLine) {
-                svgLine.classList.add('hovered');
-            }
-        });
-        
-        btn.addEventListener('mouseleave', () => {
+            if (svgLine) svgLine.classList.add('hovered');
+        };
+        const unhighlight = () => {
             const svgLine = document.getElementById(`svgHeightLine_${idx}`);
-            if (svgLine) {
-                svgLine.classList.remove('hovered');
-            }
-        });
+            if (svgLine) svgLine.classList.remove('hovered');
+        };
+
+        btn.addEventListener('mouseenter', highlight);
+        btn.addEventListener('mouseleave', unhighlight);
+        btn.addEventListener('focus', highlight);
+        btn.addEventListener('blur', unhighlight);
+
+        // 作答入口。原本只有 SVG 上的細線段可點，觸控裝置幾乎點不中，
+        // 四顆選項按鈕形同虛設，這裡補上真正的點擊綁定。
+        btn.addEventListener('click', () => handleChoiceSelection(idx));
     }
 }
 
@@ -1085,10 +1273,15 @@ const fireworks = new Fireworks('fireworksCanvas');
 
 // Answer Selection Logic
 function handleChoiceSelection(choiceIndex) {
-    const levelQuestions = questionsData[gameState.currentLevel];
-    const currentQ = levelQuestions[gameState.currentQuestionIndex];
+    // 讀本關的題目快照，而非原始題庫——快照才是已抽題、已洗選項的那一份
+    const currentQ = gameState.activeQuestions[gameState.currentQuestionIndex];
+    if (!currentQ) return;
     const chosenCandidate = currentQ.candidates[choiceIndex];
-    
+    if (!chosenCandidate) return;
+
+    // 記住是哪顆按鈕觸發的，關閉回饋視窗時把焦點還回去
+    lastFocusedChoice = document.getElementById(`btnChoice${choiceIndex}`);
+
     const feedbackOverlay = document.getElementById('feedbackOverlay');
     const feedbackIcon = document.getElementById('feedbackIcon');
     const title = document.getElementById('feedbackResultTitle');
@@ -1098,8 +1291,9 @@ function handleChoiceSelection(choiceIndex) {
     
     if (chosenCandidate.isCorrect) {
         sound.playCorrect();
-        gameState.score += 20; // 5 questions total, max 100 points
-        
+        // 依實際題數平均分配，總分維持 100
+        gameState.score += Math.round(100 / gameState.activeQuestions.length);
+
         feedbackIcon.className = 'feedback-icon correct';
         feedbackIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
         title.textContent = '答對了！';
@@ -1112,8 +1306,8 @@ function handleChoiceSelection(choiceIndex) {
         nextBtn.style.display = 'inline-flex';
         tryBtn.style.display = 'none';
         
-        // Start the fireworks!
-        fireworks.start();
+        // Start the fireworks!（若使用者要求減少動態效果則略過）
+        if (!prefersReducedMotion) fireworks.start();
     } else {
         sound.playIncorrect();
         gameState.errorsInLevel += 1;
@@ -1137,8 +1331,23 @@ function handleChoiceSelection(choiceIndex) {
         // Disable this incorrect button to prevent double clicking
         document.getElementById(`btnChoice${choiceIndex}`).disabled = true;
     }
-    
+
     feedbackOverlay.classList.add('active');
+
+    // 把焦點移進對話框，鍵盤與螢幕閱讀器使用者才會被帶到剛跳出的說明上
+    const focusTarget = chosenCandidate.isCorrect ? nextBtn : tryBtn;
+    window.setTimeout(() => focusTarget.focus(), 50);
+}
+
+// 記錄開啟回饋視窗前的焦點位置，關閉後歸還
+let lastFocusedChoice = null;
+
+/** 關閉回饋視窗並把焦點還給原本的選項按鈕 */
+function closeFeedback() {
+    document.getElementById('feedbackOverlay').classList.remove('active');
+    if (lastFocusedChoice && !lastFocusedChoice.disabled) {
+        lastFocusedChoice.focus();
+    }
 }
 
 // Progressing to Next Question or Completion Screen
@@ -1146,10 +1355,15 @@ function nextQuestion() {
     fireworks.stop();
     document.getElementById('feedbackOverlay').classList.remove('active');
     
-    const levelQuestions = questionsData[gameState.currentLevel];
+    const levelQuestions = gameState.activeQuestions;
     if (gameState.currentQuestionIndex < levelQuestions.length - 1) {
         gameState.currentQuestionIndex += 1;
         loadQuestion();
+        // 換題後把焦點帶回第一個選項，鍵盤使用者不必重新 Tab 一輪
+        window.setTimeout(() => {
+            const first = document.getElementById('btnChoice0');
+            if (first) first.focus();
+        }, 50);
     } else {
         // Level complete!
         finishLevel();
@@ -1172,14 +1386,14 @@ function finishLevel() {
         gameState.levelHistory[gameState.currentLevel].stars = stars;
     }
     gameState.levelHistory[gameState.currentLevel].completed = true;
-    
+    persistProgress(); // 寫入 localStorage，重整或關掉分頁後進度仍在
+
     // Render Complete Screen details
-    let levelName = "平行四邊形";
-    if (gameState.currentLevel === 2) levelName = "三角形";
-    if (gameState.currentLevel === 3) levelName = "梯形";
-    
+    const levelName = LEVEL_NAMES[gameState.currentLevel];
+    const totalQ = gameState.activeQuestions.length;
+
     document.getElementById('completeSubtitle').textContent = `你已經完成「${levelName}」的全部挑戰！`;
-    document.getElementById('summaryCorrect').textContent = `5 / 5`;
+    document.getElementById('summaryCorrect').textContent = `${totalQ} / ${totalQ}`;
     document.getElementById('summaryErrors').textContent = `${gameState.errorsInLevel} 次`;
     
     let starText = "三星級 (完美解鎖!)";
@@ -1242,20 +1456,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Background decorations
     createBgElements();
     
-    // Initialize sound switcher
+    // Initialize sound switcher（開關狀態由 localStorage 還原，跨頁與重整都記得）
     const soundToggle = document.getElementById('soundToggle');
+    const renderSoundIcon = () => {
+        soundToggle.innerHTML = sound.enabled
+            ? '<i class="fa-solid fa-volume-high"></i>'
+            : '<i class="fa-solid fa-volume-xmark"></i>';
+        soundToggle.setAttribute('aria-pressed', String(sound.enabled));
+        soundToggle.setAttribute('aria-label', sound.enabled ? '關閉音效' : '開啟音效');
+    };
+    renderSoundIcon();
     soundToggle.addEventListener('click', () => {
         sound.enabled = !sound.enabled;
-        if (sound.enabled) {
-            soundToggle.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
-        } else {
-            soundToggle.innerHTML = '<i class="fa-solid fa-volume-xmark"></i>';
-        }
+        renderSoundIcon();
     });
-    
-    // Setup Option Buttons Hovers
-    setupHoverListeners();
-    
+
+    // Setup Option Buttons interactions（hover / focus / click）
+    setupChoiceInteractions();
+
+    // 重新開始：清除本機進度，供課堂平板換人使用
+    const resetBtn = document.getElementById('resetProgressBtn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            if (!window.confirm('確定要清除這款遊戲的所有關卡進度嗎？此動作無法復原。')) return;
+            GeoStorage.clearProgress(GAME_ID);
+            gameState.levelHistory = GeoStorage.loadProgress(GAME_ID);
+            updateMapUI();
+            sound.playClick();
+        });
+    }
+
+    // 若瀏覽器不允許儲存（無痕視窗等），先告知使用者進度不會被保留
+    const hint = document.getElementById('storageHint');
+    if (hint && !GeoStorage.isAvailable()) {
+        hint.textContent = '提醒：目前的瀏覽器設定無法儲存進度，關閉分頁後紀錄不會保留。';
+    }
+
     // Welcome screen navigation
     document.getElementById('startBtn').addEventListener('click', () => {
         showScreen('mapScreen');
@@ -1286,8 +1522,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Next Question dialog buttons
     document.getElementById('nextQuestionBtn').addEventListener('click', nextQuestion);
     
-    document.getElementById('tryAgainBtn').addEventListener('click', () => {
-        document.getElementById('feedbackOverlay').classList.remove('active');
+    document.getElementById('tryAgainBtn').addEventListener('click', closeFeedback);
+
+    // 回饋視窗開啟時，Esc 等同「再試一次」；答對時 Esc 不關閉，避免略過說明
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('feedbackOverlay');
+        if (!overlay.classList.contains('active')) return;
+        const tryBtn = document.getElementById('tryAgainBtn');
+        if (tryBtn.style.display !== 'none') closeFeedback();
     });
 });
 
