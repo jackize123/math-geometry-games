@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>複合圖形面積挑戰 - 幾何拆解大師</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background dynamic elements -->
+    <div class="bg-decorations" id="bgDecorations"></div>
+
+    <div class="app-container">
+        <!-- Global Header -->
+        <header class="global-header">
+            <div class="game-logo">
+                <i class="fa-solid fa-puzzle-piece logo-icon"></i>
+                <span>複合圖形面積挑戰</span>
+            </div>
+            <button id="soundToggle" class="icon-btn" aria-label="切換音效">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+        </header>
+
+        <!-- WELCOME SCREEN -->
+        <section id="welcomeScreen" class="screen active">
+            <div class="welcome-card card">
+                <div class="badge">五年級數學幾何篇</div>
+                <h1>幾何拆解大師<br><span class="highlight">複合圖形面積挑戰</span></h1>
+                <p class="subtitle">將複雜的圖形拆解成簡單的平行四邊形、三角形與梯形，運用公式各個擊破，算出總面積吧！</p>
+                
+                <div class="welcome-visual">
+                    <svg viewBox="0 0 240 140" class="preview-svg">
+                        <!-- Composite shape visualization: a trapezoid and a triangle -->
+                        <polygon points="30,110 130,110 130,50 30,50" class="preview-shape shape-rect" />
+                        <polygon points="130,110 210,110 130,50" class="preview-shape shape-tri" />
+                        <!-- Labels -->
+                        <line x1="30" y1="120" x2="130" y2="120" stroke="var(--primary)" stroke-width="2" />
+                        <line x1="130" y1="120" x2="210" y2="120" stroke="var(--accent)" stroke-width="2" />
+                        <text x="80" y="135" class="preview-label">10 cm</text>
+                        <text x="170" y="135" class="preview-label">8 cm</text>
+                        <text x="15" y="85" class="preview-label">6 cm</text>
+                        <line x1="130" y1="50" x2="130" y2="110" stroke="var(--text-muted)" stroke-dasharray="3,3" />
+                    </svg>
+                </div>
+
+                <button id="startBtn" class="primary-btn pulse">
+                    <span>開始挑戰</span>
+                    <i class="fa-solid fa-gamepad"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- LEVEL SELECT SCREEN -->
+        <section id="mapScreen" class="screen">
+            <div class="map-container">
+                <div class="screen-title">
+                    <button class="back-btn-small" id="mapBackToWelcome"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2>選擇挑戰關卡</h2>
+                </div>
+                
+                <div class="level-cards">
+                    <!-- Level 1 -->
+                    <div class="level-card card" id="level1Card" data-level="1">
+                        <div class="level-number">關卡 01</div>
+                        <h3>加法拼接型</h3>
+                        <p>將圖形分割成兩個簡單的圖形，分別求出面積後相加。</p>
+                        <div class="level-status">
+                            <div class="stars" id="level1Stars">
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="status-text" id="level1StatusText">未挑戰</span>
+                        </div>
+                        <button class="level-play-btn">進入關卡</button>
+                    </div>
+
+                    <!-- Level 2 -->
+                    <div class="level-card card" id="level2Card" data-level="2">
+                        <div class="level-number">關卡 02</div>
+                        <h3>減法挖空型</h3>
+                        <p>從一個大圖形中，扣除內部挖空的部分圖形，求出剩餘面積。</p>
+                        <div class="level-status">
+                            <div class="stars" id="level2Stars">
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="status-text" id="level2StatusText">未挑戰</span>
+                        </div>
+                        <button class="level-play-btn">進入關卡</button>
+                    </div>
+
+                    <!-- Level 3 -->
+                    <div class="level-card card" id="level3Card" data-level="3">
+                        <div class="level-number">關卡 03</div>
+                        <h3>多重拆解與割補</h3>
+                        <p>需要拆解成三個部分，或者動態移補，求出複雜的幾何圖形面積！</p>
+                        <div class="level-status">
+                            <div class="stars" id="level3Stars">
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="status-text" id="level3StatusText">未挑戰</span>
+                        </div>
+                        <button class="level-play-btn">進入關卡</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- GAMEPLAY SCREEN -->
+        <section id="gameScreen" class="screen">
+            <div class="game-layout">
+                <!-- Status Bar -->
+                <div class="game-status-bar card">
+                    <button class="back-btn" id="gameBackToMap">
+                        <i class="fa-solid fa-map"></i> <span>返回關卡</span>
+                    </button>
+                    <div class="game-progress">
+                        <span class="progress-title" id="gameStageTitle">第一關：加法拼接型</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="progressBarFill" style="width: 33%;"></div>
+                        </div>
+                        <span class="progress-text" id="progressText">第 1 / 3 題</span>
+                    </div>
+                    <div class="score-display">
+                        <i class="fa-solid fa-star star-active"></i>
+                        <span id="currentScore">得分：0</span>
+                    </div>
+                </div>
+
+                <!-- Main Work Area -->
+                <div class="main-play-area">
+                    <!-- Left: Shape SVG Display -->
+                    <div class="canvas-panel card">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-compass-drafting"></i> 複合圖形</h3>
+                            <span class="hint-badge" id="shapeHintBadge">請觀察標記尺寸</span>
+                        </div>
+                        <div class="svg-container">
+                            <svg id="compositeGeometrySvg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet">
+                                <!-- Dynamic SVG elements will be injected here -->
+                            </svg>
+                        </div>
+                        <div class="helper-tips">
+                            <i class="fa-regular fa-lightbulb"></i>
+                            <span id="questionTipText">點擊右側的圖形按鈕，將此圖形拆解並逐一計算其面積。</span>
+                        </div>
+                    </div>
+
+                    <!-- Right: Workspace Panel -->
+                    <div class="workspace-panel card">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-calculator"></i> 拆解與計算區</h3>
+                        </div>
+
+                        <!-- Step 1: Add shape parts -->
+                        <div class="step-section">
+                            <h4 class="step-title"><span class="step-num">1</span> 選擇你想拆解出的圖形：</h4>
+                            <div class="shape-selector-buttons">
+                                <button class="shape-select-btn" data-shape="parallelogram">
+                                    <i class="fa-solid fa-square-envelope"></i>
+                                    <span>平行四邊形</span>
+                                </button>
+                                <button class="shape-select-btn" data-shape="triangle">
+                                    <i class="fa-solid fa-play fa-rotate-270"></i>
+                                    <span>三角形</span>
+                                </button>
+                                <button class="shape-select-btn" data-shape="trapezoid">
+                                    <i class="fa-solid fa-trapezoid"></i> <!-- Custom or fallback icon -->
+                                    <svg viewBox="0 0 24 24" class="svg-icon"><polygon points="6,6 18,6 22,18 2,18" /></svg>
+                                    <span>梯形</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Formulas and calculations -->
+                        <div class="step-section">
+                            <h4 class="step-title"><span class="step-num">2</span> 填入數據計算各部分面積：</h4>
+                            <div class="formulas-list" id="formulasList">
+                                <!-- Dynamic formula items will be injected here -->
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-diagram-predecessor"></i>
+                                    <p>尚未新增拆解圖形。請點擊上方按鈕開始拆解！</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Total calculation -->
+                        <div class="step-section locked" id="totalSection">
+                            <h4 class="step-title"><span class="step-num">3</span> 計算複合圖形總面積：</h4>
+                            <div class="total-calc-container">
+                                <div class="total-calc-expression" id="totalCalcExpression">
+                                    <!-- Dynamic parts combined with + or - dropdowns -->
+                                    <span>請先完成步驟 2 的部分面積計算</span>
+                                </div>
+                                <div class="total-calc-submit">
+                                    <button class="primary-btn" id="submitTotalAreaBtn" disabled>
+                                        <span>驗證總面積</span>
+                                        <i class="fa-solid fa-circle-check"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEEDBACK MODAL -->
+        <div id="feedbackOverlay" class="modal-overlay">
+            <canvas id="fireworksCanvas"></canvas>
+            <div class="feedback-card card animate-pop">
+                <div class="feedback-icon" id="feedbackIcon">
+                    <!-- Check or cross -->
+                </div>
+                <h3 id="feedbackResultTitle">答對了！</h3>
+                <p id="feedbackExplanation" class="explanation-text">
+                    非常好！你成功將複合圖形拆解並計算出正確的總面積。
+                </p>
+                <div class="feedback-actions">
+                    <button id="tryAgainBtn" class="secondary-btn">
+                        <span>再試一次</span>
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                    <button id="nextQuestionBtn" class="primary-btn">
+                        <span>下一題</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LEVEL COMPLETE SCREEN -->
+        <section id="completeScreen" class="screen">
+            <div class="complete-card card text-center">
+                <div class="trophy-container">
+                    <i class="fa-solid fa-trophy trophy-icon animate-bounce"></i>
+                </div>
+                <h2 id="completeTitle">關卡挑戰成功！</h2>
+                <p class="subtitle" id="completeSubtitle">你已經完成此關卡的全部挑戰！</p>
+
+                <div class="final-stars-container" id="finalStars">
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                </div>
+
+                <div class="score-summary-details">
+                    <div class="summary-item">
+                        <span class="label">答對題數：</span>
+                        <span class="val" id="summaryCorrect">3 / 3</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">答錯次數：</span>
+                        <span class="val" id="summaryErrors">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">獲得評價：</span>
+                        <span class="val" id="summaryStarsText">完美三星級！</span>
+                    </div>
+                </div>
+
+                <div class="complete-actions">
+                    <button id="completeBackToMap" class="secondary-btn">
+                        <i class="fa-solid fa-map"></i>
+                        <span>返回關卡地圖</span>
+                    </button>
+                    <button id="completeNextLevel" class="primary-btn">
+                        <span>挑戰下一關</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Script loading -->
+    <script src="game.js"></script>
+</body>
+</html>

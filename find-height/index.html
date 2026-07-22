@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>找高大作戰 - 為圖形指定的底找到相對應的高</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome icons via CDN for buttons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background dynamic shapes -->
+    <div class="bg-decorations" id="bgDecorations"></div>
+
+    <div class="app-container">
+        <!-- Sound control and global settings -->
+        <header class="global-header">
+            <div class="game-logo">
+                <i class="fa-solid fa-shapes logo-icon"></i>
+                <span>找高大作戰</span>
+            </div>
+            <button id="soundToggle" class="icon-btn" aria-label="切換音效">
+                <i class="fa-solid fa-volume-high"></i>
+            </button>
+        </header>
+
+        <!-- WELCOME SCREEN -->
+        <section id="welcomeScreen" class="screen active">
+            <div class="welcome-card card">
+                <div class="badge">數學小遊戲</div>
+                <h1>為圖形指定的底<br><span class="highlight">找到相對應的高</span></h1>
+                <p class="subtitle">平行四邊形、三角形與梯形的幾何大挑戰！你能成功闖過三關，贏得所有星星嗎？</p>
+                
+                <div class="welcome-visual">
+                    <!-- Dynamic SVG preview representing base and height -->
+                    <svg viewBox="0 0 200 120" class="preview-svg">
+                        <polygon points="40,90 140,90 170,30 70,30" class="preview-shape" />
+                        <line x1="40" y1="90" x2="140" y2="90" class="preview-base" />
+                        <line x1="70" y1="30" x2="70" y2="90" class="preview-height" />
+                        <path d="M 70,80 L 80,80 L 80,90" class="preview-right-angle" />
+                        <text x="90" y="110" class="preview-label">底 (Base)</text>
+                        <text x="50" y="65" class="preview-label h-label">高 (Height)</text>
+                    </svg>
+                </div>
+
+                <button id="startBtn" class="primary-btn pulse">
+                    <span>開始挑戰</span>
+                    <i class="fa-solid fa-play"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- MAP SCREEN (LEVEL SELECT) -->
+        <section id="mapScreen" class="screen">
+            <div class="map-container">
+                <div class="screen-title">
+                    <button class="back-btn-small" id="mapBackToWelcome"><i class="fa-solid fa-arrow-left"></i></button>
+                    <h2>選擇挑戰關卡</h2>
+                </div>
+                
+                <div class="level-cards">
+                    <!-- Level 1 -->
+                    <div class="level-card card" id="level1Card" data-level="1">
+                        <div class="level-number">關卡 01</div>
+                        <h3>平行四邊形的底與高</h3>
+                        <p>尋找平行四邊形指定底邊時，相對應的垂直高度。</p>
+                        <div class="level-status">
+                            <div class="stars" id="level1Stars">
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="status-text" id="level1StatusText">未挑戰</span>
+                        </div>
+                        <button class="level-play-btn">進入關卡</button>
+                    </div>
+
+                    <!-- Level 2 -->
+                    <div class="level-card card" id="level2Card" data-level="2">
+                        <div class="level-number">關卡 02</div>
+                        <h3>三角形的底與高</h3>
+                        <p>包含正三角形、等腰、直角以及難度較高的鈍角三角形外部高！</p>
+                        <div class="level-status">
+                            <div class="stars" id="level2Stars">
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="status-text" id="level2StatusText">未挑戰</span>
+                        </div>
+                        <button class="level-play-btn">進入關卡</button>
+                    </div>
+
+                    <!-- Level 3 -->
+                    <div class="level-card card" id="level3Card" data-level="3">
+                        <div class="level-number">關卡 03</div>
+                        <h3>梯形的底與高</h3>
+                        <p>挑戰等腰梯形、直角梯形，以及平行邊在左右兩側的特殊梯形！</p>
+                        <div class="level-status">
+                            <div class="stars" id="level3Stars">
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                                <i class="fa-regular fa-star"></i>
+                            </div>
+                            <span class="status-text" id="level3StatusText">未挑戰</span>
+                        </div>
+                        <button class="level-play-btn">進入關卡</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- GAMEPLAY SCREEN -->
+        <section id="gameScreen" class="screen">
+            <div class="game-layout">
+                <!-- Left Sidebar or Header Status -->
+                <div class="game-status-bar card">
+                    <button class="back-btn" id="gameBackToMap">
+                        <i class="fa-solid fa-map"></i> <span>返回關卡</span>
+                    </button>
+                    <div class="game-progress">
+                        <span class="progress-title">第一關：平行四邊形</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="progressBarFill" style="width: 20%;"></div>
+                        </div>
+                        <span class="progress-text" id="progressText">第 1 / 5 題</span>
+                    </div>
+                    <div class="score-display">
+                        <i class="fa-solid fa-star star-active"></i>
+                        <span id="currentScore">得分：0</span>
+                    </div>
+                </div>
+
+                <!-- Main Interactive Play Area -->
+                <div class="main-play-area">
+                    <!-- Question Box -->
+                    <div class="question-box card">
+                        <h2 id="questionPrompt">請觀察圖形，找出以黑色粗線為「底」時，相對應的「高」是哪一條？</h2>
+                    </div>
+
+                    <!-- Canvas/SVG Render Box -->
+                    <div class="svg-container card">
+                        <svg id="gameGeometrySvg" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet">
+                            <!-- Geometric objects will be injected dynamically -->
+                        </svg>
+                        
+                        <!-- Mini tutorial overlay for help -->
+                        <div class="helper-tips">
+                            <i class="fa-regular fa-lightbulb"></i>
+                            <span>提示：高必須與指定的底邊垂直，並且連接到底邊與其對邊（或對角頂點）。</span>
+                        </div>
+                    </div>
+
+                    <!-- Choices Area -->
+                    <div class="choices-container">
+                        <button class="choice-btn color-red" data-choice="0" id="btnChoice0">
+                            <div class="choice-color-indicator red-bg"></div>
+                            <span class="choice-text">紅色線段 (甲)</span>
+                        </button>
+                        <button class="choice-btn color-blue" data-choice="1" id="btnChoice1">
+                            <div class="choice-color-indicator blue-bg"></div>
+                            <span class="choice-text">藍色線段 (乙)</span>
+                        </button>
+                        <button class="choice-btn color-orange" data-choice="2" id="btnChoice2">
+                            <div class="choice-color-indicator orange-bg"></div>
+                            <span class="choice-text">橘色線段 (丙)</span>
+                        </button>
+                        <button class="choice-btn color-green" data-choice="3" id="btnChoice3">
+                            <div class="choice-color-indicator green-bg"></div>
+                            <span class="choice-text">綠色線段 (丁)</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- QUESTION FEEDBACK DIALOG (MODAL OVERLAY) -->
+        <div id="feedbackOverlay" class="modal-overlay">
+            <canvas id="fireworksCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index: 1;"></canvas>
+            <div class="feedback-card card animate-pop" style="z-index: 2; position: relative;">
+                <div class="feedback-icon" id="feedbackIcon">
+                    <!-- Dynamic check or cross -->
+                </div>
+                <h3 id="feedbackResultTitle">答對了！</h3>
+                <p id="feedbackExplanation" class="explanation-text">
+                    非常好！紅色線段確實與底邊垂直，且連接到對邊，是正確的高。
+                </p>
+                <button id="nextQuestionBtn" class="primary-btn">
+                    <span>下一題</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button id="tryAgainBtn" class="secondary-btn">
+                    <span>再試一次</span>
+                    <i class="fa-solid fa-rotate-left"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- LEVEL COMPLETE SCREEN -->
+        <section id="completeScreen" class="screen">
+            <div class="complete-card card text-center">
+                <div class="trophy-container">
+                    <i class="fa-solid fa-trophy trophy-icon animate-bounce"></i>
+                </div>
+                <h2 id="completeTitle">關卡挑戰成功！</h2>
+                <p class="subtitle" id="completeSubtitle">你已經完成平行四邊形的全部挑戰！</p>
+
+                <!-- Final stars evaluation -->
+                <div class="final-stars-container" id="finalStars">
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                    <i class="fa-solid fa-star"></i>
+                </div>
+
+                <div class="score-summary-details">
+                    <div class="summary-item">
+                        <span class="label">答對題數：</span>
+                        <span class="val" id="summaryCorrect">5 / 5</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">答錯次數：</span>
+                        <span class="val" id="summaryErrors">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">獲得星等：</span>
+                        <span class="val" id="summaryStarsText">三星級 (完美!)</span>
+                    </div>
+                </div>
+
+                <div class="complete-actions">
+                    <button id="completeBackToMap" class="secondary-btn">
+                        <i class="fa-solid fa-map"></i>
+                        <span>返回關卡地圖</span>
+                    </button>
+                    <button id="completeNextLevel" class="primary-btn">
+                        <span>挑戰下一關</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Script loading -->
+    <script src="game.js"></script>
+</body>
+</html>

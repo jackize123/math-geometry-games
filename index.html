@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幾何互動教室 - 國小數學圖形遊戲</title>
+    <meta name="description" content="兩款國小高年級數學幾何互動遊戲：找高大作戰、複合圖形面積挑戰。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-accent: #1e1b4b;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #6366f1;
+            --accent: #8b5cf6;
+            --color-green: #10b981;
+            --color-amber: #f59e0b;
+            --radius-lg: 24px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', 'Noto Sans TC', system-ui, -apple-system, "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-accent) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 背景裝飾光暈，與遊戲頁的視覺語言一致 */
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(120px);
+            opacity: 0.35;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::before {
+            width: 480px; height: 480px;
+            background: var(--primary);
+            top: -160px; left: -140px;
+        }
+        body::after {
+            width: 420px; height: 420px;
+            background: var(--accent);
+            bottom: -180px; right: -120px;
+        }
+
+        .page {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            width: 100%;
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 64px 24px 48px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header.hero {
+            text-align: center;
+            margin-bottom: 56px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            color: #c7d2fe;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.25rem);
+            font-weight: 900;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            margin-bottom: 18px;
+        }
+
+        h1 .highlight {
+            background: linear-gradient(120deg, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: clamp(0.95rem, 2vw, 1.1rem);
+            line-height: 1.75;
+            max-width: 620px;
+            margin: 0 auto;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 28px;
+        }
+
+        .game-card {
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-lg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+            padding: 32px;
+            text-decoration: none;
+            color: inherit;
+            transition: var(--transition);
+        }
+
+        .game-card:hover,
+        .game-card:focus-visible {
+            transform: translateY(-6px);
+            border-color: rgba(129, 140, 248, 0.5);
+            box-shadow: 0 20px 44px rgba(99, 102, 241, 0.28);
+            outline: none;
+        }
+
+        .card-visual {
+            height: 132px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-visual svg { width: 100%; height: 100%; }
+
+        .card-tag {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .game-card h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .game-card p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            flex: 1;
+            margin-bottom: 22px;
+        }
+
+        .topics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .topic {
+            font-size: 0.8rem;
+            padding: 5px 12px;
+            border-radius: 999px;
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #cbd5e1;
+        }
+
+        .play-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 22px;
+            border-radius: 14px;
+            font-size: 1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff;
+            transition: var(--transition);
+        }
+
+        .game-card:hover .play-cta { filter: brightness(1.12); }
+        .play-cta svg { width: 18px; height: 18px; fill: currentColor; }
+
+        footer {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 32px 24px 40px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        @media (max-width: 640px) {
+            .page { padding: 40px 18px 32px; }
+            .game-card { padding: 24px; }
+        }
+
+        /* 尊重使用者的減少動態偏好設定 */
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; animation: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="hero">
+            <div class="badge">國小高年級 · 數學幾何</div>
+            <h1>幾何互動教室<br><span class="highlight">動手玩，就懂了</span></h1>
+            <p class="subtitle">
+                兩款針對「面積」單元設計的互動遊戲。從認識底與高的對應關係，
+                到把複雜圖形拆解成基本圖形求面積，一步步建立幾何直覺。
+            </p>
+        </header>
+
+        <main class="game-grid">
+            <!-- 遊戲一：找高大作戰 -->
+            <a class="game-card" href="find-height/">
+                <div class="card-visual">
+                    <svg viewBox="0 0 200 120" aria-hidden="true">
+                        <polygon points="40,90 140,90 170,30 70,30"
+                                 fill="rgba(99,102,241,0.18)" stroke="#818cf8" stroke-width="2.5"/>
+                        <line x1="40" y1="90" x2="140" y2="90" stroke="#f8fafc" stroke-width="5" stroke-linecap="round"/>
+                        <line x1="70" y1="30" x2="70" y2="90" stroke="#f43f5e" stroke-width="3.5" stroke-dasharray="6,4"/>
+                        <path d="M 70,80 L 80,80 L 80,90" fill="none" stroke="#f43f5e" stroke-width="2"/>
+                        <text x="90" y="110" fill="#94a3b8" font-size="13" text-anchor="middle">底</text>
+                        <text x="52" y="64" fill="#f43f5e" font-size="13" text-anchor="middle">高</text>
+                    </svg>
+                </div>
+                <div class="card-tag">遊戲 01 · 三個關卡</div>
+                <h2>找高大作戰</h2>
+                <p>
+                    給定一條底邊，從四條線段中找出真正對應的「高」。
+                    包含鈍角三角形的外部高、平行邊在左右兩側的特殊梯形等容易混淆的情境。
+                </p>
+                <div class="topics">
+                    <span class="topic">平行四邊形</span>
+                    <span class="topic">三角形</span>
+                    <span class="topic">梯形</span>
+                </div>
+                <span class="play-cta">
+                    開始挑戰
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                </span>
+            </a>
+
+            <!-- 遊戲二：複合圖形面積挑戰 -->
+            <a class="game-card" href="composite-area/">
+                <div class="card-visual">
+                    <svg viewBox="0 0 240 130" aria-hidden="true">
+                        <polygon points="30,110 130,110 130,50 30,50"
+                                 fill="rgba(59,130,246,0.2)" stroke="#3b82f6" stroke-width="2.5"/>
+                        <polygon points="130,110 210,110 130,50"
+                                 fill="rgba(16,185,129,0.2)" stroke="#10b981" stroke-width="2.5"/>
+                        <line x1="130" y1="50" x2="130" y2="110" stroke="#f59e0b" stroke-width="2" stroke-dasharray="4,4"/>
+                        <text x="80" y="128" fill="#94a3b8" font-size="13" text-anchor="middle">10 cm</text>
+                        <text x="170" y="128" fill="#94a3b8" font-size="13" text-anchor="middle">8 cm</text>
+                    </svg>
+                </div>
+                <div class="card-tag">遊戲 02 · 三個關卡</div>
+                <h2>複合圖形面積挑戰</h2>
+                <p>
+                    把複雜圖形拆解成基本圖形，逐一套用公式計算，再用加法或減法合併出總面積。
+                    附拆解工作區與逐步驗算，看得見解題的每一步。
+                </p>
+                <div class="topics">
+                    <span class="topic">加法拼接</span>
+                    <span class="topic">減法挖空</span>
+                    <span class="topic">多重拆解</span>
+                </div>
+                <span class="play-cta">
+                    開始挑戰
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+                </span>
+            </a>
+        </main>
+    </div>
+
+    <footer>
+        建議使用電腦或平板橫向操作，體驗最佳。<br>
+        國小數學幾何教學輔助教材
+    </footer>
+</body>
+</html>

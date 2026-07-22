@@ -1,0 +1,14 @@
+# 相依套件
+node_modules/
+
+# 部署平台
+.vercel/
+
+# 作業系統產生的檔案
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# 編輯器
+.vscode/
+.idea/
